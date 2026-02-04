@@ -1,45 +1,55 @@
 {
-  "manifestVersion": 5,
   "id": "com.slopengine.prelevenlabs",
   "name": "ElevenLabs Voiceover",
   "version": "1.1.0",
   "main": "index.html",
-  "host": {
-    "app": "premierepro",
-    "minVersion": "25.0.0"
-  },
+  "host": [
+    {
+      "app": "premierepro",
+      "minVersion": "25.1.0"
+    }
+  ],
+  "manifestVersion": 5,
   "entrypoints": [
     {
       "type": "panel",
       "id": "elevenLabsPanel",
-      "label": {
-        "default": "ElevenLabs Voiceover"
-      },
       "minimumSize": {
         "width": 280,
         "height": 400
       },
+      "maximumSize": {
+        "width": 2000,
+        "height": 2000
+      },
       "preferredDockedSize": {
         "width": 320,
         "height": 600
+      },
+      "preferredFloatingSize": {
+        "width": 320,
+        "height": 600
+      },
+      "label": {
+        "default": "ElevenLabs Voiceover"
       }
     }
   ],
   "icons": [
     {
-      "width": 24,
-      "height": 24,
+      "width": 48,
+      "height": 48,
       "path": "icons/icon.png",
-      "scale": [1, 2]
+      "scale": [1, 2],
+      "theme": ["darkest", "dark", "medium", "lightest", "light", "all"],
+      "species": ["pluginList"]
     }
   ],
   "requiredPermissions": {
     "network": {
-      "domains": [
-        "https://api.elevenlabs.io"
-      ]
+      "domains": "all"
     },
     "localFileSystem": "fullAccess",
-    "localStorage": "readWrite"
+    "clipboard": "readAndWrite"
   }
 }
