@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -224,6 +225,9 @@
     </div>
   </div>
 
+  <!-- CEP Scripts — order matters: CSInterface first, then API client, then main logic -->
+  <script src="js/CSInterface.js"></script>
+  <script src="js/elevenlabs-api.js"></script>
   <script src="index.js"></script>
 </body>
 </html>

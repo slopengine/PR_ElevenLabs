@@ -1,4 +1,4 @@
-# PR_ElevenLabs — Premiere Pro Voiceover Plugin
+# PR_ElevenLabs — Premiere Pro Voiceover Extension (CEP)
 
 Generate ElevenLabs voiceovers directly inside Adobe Premiere Pro and insert them straight into your timeline.
 
@@ -16,29 +16,86 @@ Generate ElevenLabs voiceovers directly inside Adobe Premiere Pro and insert the
 
 ## Requirements
 
-- **Adobe Premiere Pro 25.6+** (UXP support required)
+- **Adobe Premiere Pro 13.0+** (CC 2019 or later with CEP 12 support)
 - **ElevenLabs API Key** — [Get one here](https://elevenlabs.io/app/settings/api-keys)
-- **UXP Developer Tool (UDT)** — For loading during development
 
 ## Installation (Development)
 
-1. Install the [UXP Developer Tool](https://developer.adobe.com/premiere-pro/uxp/introduction/) from Creative Cloud
-2. Open UDT → **Add Plugin** → Select this folder
-3. Click **Load** to install in Premiere Pro
-4. Find the panel: **Window → Extensions → ElevenLabs Voiceover**
+### 1. Enable Debug Mode
 
-## Installation (Production)
+CEP extensions require debug mode to be enabled during development.
 
-Package as a `.ccx` file for distribution:
+**macOS:**
+```bash
+defaults write com.adobe.CSXS.12 PlayerDebugMode 1
+```
+
+**Windows:**
+Open Registry Editor and set:
+```
+HKEY_CURRENT_USER\SOFTWARE\Adobe\CSXS.12\PlayerDebugMode = 1
+```
+
+> After setting this, restart Premiere Pro.
+
+### 2. Install the Extension
+
+Copy or symlink this folder to your CEP extensions directory:
+
+**macOS:**
+```bash
+# Symlink (recommended for development)
+ln -s /path/to/PR_ElevenLabs ~/Library/Application\ Support/Adobe/CEP/extensions/com.slopengine.elevenlabs
+
+# Or copy
+cp -r /path/to/PR_ElevenLabs ~/Library/Application\ Support/Adobe/CEP/extensions/com.slopengine.elevenlabs
+```
+
+**Windows:**
+```cmd
+:: Symlink (recommended for development)
+mklink /D "%APPDATA%\Adobe\CEP\extensions\com.slopengine.elevenlabs" "C:\path\to\PR_ElevenLabs"
+
+:: Or copy
+xcopy /E /I "C:\path\to\PR_ElevenLabs" "%APPDATA%\Adobe\CEP\extensions\com.slopengine.elevenlabs"
+```
+
+### 3. Open in Premiere Pro
+
+1. Restart Premiere Pro
+2. Go to **Window → Extensions → ElevenLabs Voiceover**
+
+### 4. Debugging
+
+Open Chrome and navigate to `http://localhost:8088` to debug the panel using Chrome DevTools.
+
+## Installation (Production — ZXP)
+
+### Build the ZXP Package
+
+ZXP files are signed ZIP files. Use [ZXPSignCmd](https://github.com/nicklassandell/zxp-sign-cmd) or Adobe's official tool.
 
 ```bash
-uxp package ./PR_ElevenLabs -o elevenlabs-voiceover.ccx
+# Create a self-signed certificate
+ZXPSignCmd -selfSignedCert US CA "Slop Engine" "Slop Engine" password123 cert.p12
+
+# Package the extension
+ZXPSignCmd -sign PR_ElevenLabs elevenlabs-voiceover.zxp cert.p12 password123
 ```
+
+### Install the ZXP
+
+Use one of these tools:
+- [Anastasiy's Extension Manager](https://install.anastasiy.com/) — Recommended
+- [ZXP Installer](https://zxpinstaller.com/)
+- Adobe Extension Manager (legacy)
+
+Or for unsigned development, ZIP the folder and rename to `.zxp`.
 
 ## Usage
 
 ### First Time Setup
-1. Open the plugin panel in Premiere Pro
+1. Open the plugin panel in Premiere Pro (**Window → Extensions → ElevenLabs Voiceover**)
 2. Paste your ElevenLabs API key
 3. Click **Connect** — the key is validated against the API
 4. On success, you're taken to the main interface
@@ -50,7 +107,7 @@ uxp package ./PR_ElevenLabs -o elevenlabs-voiceover.ccx
 4. Adjust stability and clarity sliders
 5. Type or paste your voiceover script
 6. Click **Generate Voiceover**
-7. Audio is generated, saved, and optionally inserted into your timeline
+7. Audio is generated, saved, and optionally inserted into your timeline at the playhead
 
 ### Settings
 - Click the ⚙️ gear icon to disconnect your API key or refresh voices
@@ -61,17 +118,42 @@ uxp package ./PR_ElevenLabs -o elevenlabs-voiceover.ccx
 
 ```
 PR_ElevenLabs/
-├── manifest.json          # UXP plugin manifest (v5)
-├── index.html             # Panel UI with setup/main screens
-├── index.js               # Main logic, onboarding, state management
-├── css/
-│   └── styles.css         # Premiere Pro dark theme, transitions
-├── js/
-│   ├── elevenlabs-api.js  # ElevenLabs API client
-│   └── premiere-bridge.js # Premiere Pro timeline integration
-├── icons/
-│   └── icon.png           # Panel icon (24x24)
+├── CSXS/
+│   └── manifest.xml           # CEP extension manifest
+├── client/
+│   ├── index.html             # Panel UI (setup + main screens)
+│   ├── index.js               # Main panel logic (CEP/CSInterface)
+│   ├── css/
+│   │   └── styles.css         # Premiere Pro dark theme
+│   ├── js/
+│   │   ├── elevenlabs-api.js  # ElevenLabs API client (fetch-based)
+│   │   └── CSInterface.js     # Adobe CEP bridge library (v12)
+│   └── icons/
+│       └── icon.png           # Panel icon (48x48)
+├── host/
+│   └── index.jsx              # ExtendScript — Premiere Pro automation
+├── .debug                     # Debug config (Chrome DevTools on port 8088)
 └── README.md
+```
+
+## Architecture
+
+### Panel (client/) — Chromium-based
+- Runs in CEP's embedded Chromium browser
+- Has access to Node.js (`require('fs')`, `require('path')`, etc.)
+- Uses `fetch()` for ElevenLabs API calls
+- Communicates with ExtendScript via `CSInterface.evalScript()`
+
+### Host (host/index.jsx) — ExtendScript
+- Runs inside Premiere Pro's scripting engine
+- Has full access to Premiere Pro's DOM (`app.project`, `app.project.activeSequence`, etc.)
+- Handles: importing files, creating bins, inserting clips into timeline
+- Functions are called from the panel via CSInterface
+
+### Communication Flow
+```
+Panel JS → csInterface.evalScript('importAndInsert("/path/to/audio.mp3", 0)') → ExtendScript
+ExtendScript → JSON.stringify({success: true, name: "VO_voice_2024.mp3"}) → Panel JS callback
 ```
 
 ## Models
@@ -85,7 +167,22 @@ PR_ElevenLabs/
 
 ## API Key Security
 
-Your API key is stored in the plugin's localStorage (same sandboxed storage as browser localStorage in UXP). It is only ever sent to `api.elevenlabs.io` — never to any other server.
+Your API key is stored in the panel's `localStorage` (sandboxed per extension). It is only ever sent to `api.elevenlabs.io` — never to any other server.
+
+## Troubleshooting
+
+### Extension doesn't appear in Window → Extensions
+- Make sure `PlayerDebugMode` is set (see Installation above)
+- Verify the extension folder is in the correct CEP extensions directory
+- Restart Premiere Pro completely
+
+### "EvalScript error" when generating
+- Make sure a project is open with an active sequence
+- Check Chrome DevTools at `http://localhost:8088` for errors
+
+### Audio imports but doesn't insert into timeline
+- Ensure you have an active sequence (open a sequence in the timeline)
+- Check that the target audio track exists
 
 ## License
 

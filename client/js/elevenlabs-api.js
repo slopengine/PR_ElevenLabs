@@ -1,6 +1,9 @@
 /**
- * ElevenLabs API Client
- * Handles voice listing, text-to-speech generation, and audio file management.
+ * ElevenLabs API Client (CEP version)
+ * Handles voice listing, text-to-speech generation, and subscription info.
+ *
+ * No module.exports — this is loaded via <script> tag in the CEP panel.
+ * Uses standard fetch() API available in CEP's Chromium runtime.
  */
 
 const API_BASE = 'https://api.elevenlabs.io/v1';
@@ -57,7 +60,6 @@ class ElevenLabsAPI {
     }
 
     const models = await response.json();
-    // Filter to TTS-capable models
     return models.filter(m => m.can_do_text_to_speech);
   }
 
@@ -134,6 +136,5 @@ class ElevenLabsAPI {
   }
 }
 
-// Export singleton
+// Global singleton
 const elevenLabsAPI = new ElevenLabsAPI();
-module.exports = { elevenLabsAPI, ElevenLabsAPI };

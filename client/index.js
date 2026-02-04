@@ -1,11 +1,38 @@
 /**
- * ElevenLabs Voiceover Plugin — Main Entry Point
+ * ElevenLabs Voiceover — CEP Panel Main Entry Point
  * Professional onboarding flow, persistent config, and polished UX.
+ *
+ * CEP version: uses CSInterface for ExtendScript communication,
+ * Node.js fs for file I/O, and standard fetch() for API calls.
  */
 
-const { elevenLabsAPI } = require('./js/elevenlabs-api');
-const { premiereBridge } = require('./js/premiere-bridge');
-const fs = require('uxp').storage.localFileSystem;
+// ─── CEP Bridge Setup ──────────────────────────────────────────────────────
+const csInterface = new CSInterface();
+
+// Node.js modules available in CEP panels
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+/**
+ * Call an ExtendScript function in host/index.jsx
+ * @param {string} fnName - Function name
+ * @param {...*} args - Arguments (will be JSON.stringify'd)
+ * @returns {Promise<string>} Result from ExtendScript
+ */
+function callExtendScript(fnName, ...args) {
+  return new Promise((resolve, reject) => {
+    const argsStr = args.map(a => JSON.stringify(a)).join(',');
+    csInterface.evalScript(`${fnName}(${argsStr})`, (result) => {
+      if (result === 'EvalScript error.') {
+        reject(new Error(`ExtendScript error calling ${fnName}`));
+      } else {
+        resolve(result);
+      }
+    });
+  });
+}
+
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 const STORAGE_KEYS = {
@@ -144,14 +171,9 @@ connectBtn.addEventListener('click', async () => {
   }
 });
 
-// Open ElevenLabs website
+// Open ElevenLabs website — use CSInterface's browser opener
 openElevenLabs.addEventListener('click', () => {
-  try {
-    const { shell } = require('uxp');
-    shell.openExternal('https://elevenlabs.io/app/settings/api-keys');
-  } catch {
-    // Fallback — just a hint
-  }
+  csInterface.openURLInDefaultBrowser('https://elevenlabs.io/app/settings/api-keys');
 });
 
 
@@ -254,7 +276,6 @@ async function loadVoices() {
 
     // Build dropdown with optgroups
     const orderedCats = categoryOrder.filter(c => grouped[c]);
-    // Add any remaining categories not in our order
     Object.keys(grouped).forEach(c => {
       if (!orderedCats.includes(c)) orderedCats.push(c);
     });
@@ -270,7 +291,6 @@ async function loadVoices() {
         const opt = document.createElement('option');
         opt.value = v.voice_id;
 
-        // Build display name with labels
         let displayName = v.name;
         if (v.labels) {
           const tags = Object.values(v.labels).filter(Boolean);
@@ -336,13 +356,13 @@ previewVoiceBtn.addEventListener('click', async () => {
 
     const audioData = await response.arrayBuffer();
 
-    // Save to temp and play via shell
-    const tempFolder = await fs.getTemporaryFolder();
-    const tempFile = await tempFolder.createFile('voice_preview.mp3', { overwrite: true });
-    await tempFile.write(new Uint8Array(audioData), { format: 'binary' });
+    // Save to temp and play
+    const tempDir = os.tmpdir();
+    const tempFile = path.join(tempDir, 'elevenlabs_voice_preview.mp3');
+    fs.writeFileSync(tempFile, Buffer.from(audioData));
 
-    const { shell } = require('uxp');
-    await shell.openPath(tempFile.nativePath);
+    // Open with system player
+    csInterface.openURLInDefaultBrowser('file://' + tempFile);
     hideStatus();
   } catch (err) {
     showStatus('Could not play preview', 'warning');
@@ -398,7 +418,6 @@ scriptText.addEventListener('input', () => {
   const len = scriptText.value.length;
   charCount.textContent = `${len.toLocaleString()} / ${CHAR_LIMIT.toLocaleString()}`;
 
-  // Color coding
   if (len >= CHAR_LIMIT) {
     charCount.className = 'char-count limit';
   } else if (len >= CHAR_LIMIT * 0.9) {
@@ -447,7 +466,7 @@ generateBtn.addEventListener('click', async () => {
 
     lastAudioBuffer = audioBuffer;
 
-    // Step 2: Save to file
+    // Step 2: Save to file using Node.js fs
     showStatus('Saving audio file...', 'info', true);
 
     const ext = outputFormat.value.startsWith('pcm') ? 'wav' : 'mp3';
@@ -459,30 +478,30 @@ generateBtn.addEventListener('click', async () => {
 
     // Try saving to a Voiceovers folder next to the project file
     try {
-      const projectPath = await premiereBridge.getProjectPath();
-      if (projectPath) {
-        let voFolder;
-        try {
-          voFolder = await fs.getEntryForUrl(`file://${projectPath}/Voiceovers`);
-        } catch {
-          const projectFolder = await fs.getEntryForUrl(`file://${projectPath}`);
-          voFolder = await projectFolder.createFolder('Voiceovers');
+      const projectPath = await callExtendScript('getProjectPath');
+      if (projectPath && projectPath.length > 0) {
+        const voFolder = path.join(projectPath, 'Voiceovers');
+        // Create directory if it doesn't exist
+        if (!fs.existsSync(voFolder)) {
+          fs.mkdirSync(voFolder, { recursive: true });
         }
-        const audioFile = await voFolder.createFile(fileName, { overwrite: true });
-        await audioFile.write(new Uint8Array(audioBuffer), { format: 'binary' });
-        savePath = audioFile.nativePath;
+        savePath = path.join(voFolder, fileName);
+        fs.writeFileSync(savePath, Buffer.from(audioBuffer));
       }
     } catch (err) {
       console.warn('Could not save to project directory:', err.message);
+      savePath = null;
     }
 
-    // Fallback: save to plugin temp folder (always available)
+    // Fallback: save to temp folder
     if (!savePath) {
       try {
-        const tempFolder = await fs.getTemporaryFolder();
-        const audioFile = await tempFolder.createFile(fileName, { overwrite: true });
-        await audioFile.write(new Uint8Array(audioBuffer), { format: 'binary' });
-        savePath = audioFile.nativePath;
+        const tempDir = path.join(os.tmpdir(), 'ElevenLabs_Voiceovers');
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+        }
+        savePath = path.join(tempDir, fileName);
+        fs.writeFileSync(savePath, Buffer.from(audioBuffer));
       } catch (err) {
         throw new Error(`Could not save audio file: ${err.message}`);
       }
@@ -495,23 +514,44 @@ generateBtn.addEventListener('click', async () => {
       showStatus('Importing into timeline...', 'info', true);
       const trackIndex = parseInt(audioTrack.value, 10);
       try {
-        await premiereBridge.importAndInsert(savePath, trackIndex);
-        showStatus('✓ Voiceover added to timeline at playhead', 'success');
+        const result = await callExtendScript('importAndInsert', savePath, trackIndex);
+        const parsed = JSON.parse(result);
+        if (parsed.error) {
+          // Try import-only fallback
+          console.warn('Timeline insert failed:', parsed.error);
+          try {
+            const importResult = await callExtendScript('importFile', savePath);
+            const importParsed = JSON.parse(importResult);
+            if (importParsed.error) {
+              showStatus(`✓ Audio saved to: ${savePath}`, 'success');
+            } else {
+              showStatus(`⚠ Imported to Voiceovers bin (timeline insert failed: ${parsed.error})`, 'warning');
+            }
+          } catch {
+            showStatus(`✓ Audio saved to: ${savePath}`, 'success');
+          }
+        } else {
+          showStatus('✓ Voiceover added to timeline at playhead', 'success');
+        }
       } catch (insertErr) {
-        // Import-only fallback: if timeline insertion fails, still import to project
-        console.warn('Timeline insert failed, trying import only:', insertErr.message);
+        console.warn('Timeline insert error:', insertErr.message);
         try {
-          await premiereBridge.importFile(savePath);
-          showStatus(`⚠ Imported to Voiceovers bin (timeline insert failed: ${insertErr.message})`, 'warning');
+          await callExtendScript('importFile', savePath);
+          showStatus(`⚠ Imported to Voiceovers bin (timeline insert failed)`, 'warning');
         } catch {
           showStatus(`✓ Audio saved to: ${savePath}`, 'success');
         }
       }
     } else {
-      // Even when auto-insert is off, import into the project panel
+      // Import into the project panel only
       try {
-        await premiereBridge.importFile(savePath);
-        showStatus('✓ Audio saved & imported to Voiceovers bin', 'success');
+        const result = await callExtendScript('importFile', savePath);
+        const parsed = JSON.parse(result);
+        if (parsed.error) {
+          showStatus(`✓ Audio saved to: ${savePath}`, 'success');
+        } else {
+          showStatus('✓ Audio saved & imported to Voiceovers bin', 'success');
+        }
       } catch {
         showStatus(`✓ Audio saved to: ${savePath}`, 'success');
       }
@@ -552,11 +592,10 @@ generateBtn.addEventListener('click', async () => {
 // AUDIO PREVIEW
 // ═══════════════════════════════════════════════════════════════════════════
 
-playBtn.addEventListener('click', async () => {
+playBtn.addEventListener('click', () => {
   if (!lastAudioPath) return;
   try {
-    const { shell } = require('uxp');
-    await shell.openPath(lastAudioPath);
+    csInterface.openURLInDefaultBrowser('file://' + lastAudioPath);
   } catch (err) {
     showStatus(`Playback error: ${err.message}`, 'error');
   }
@@ -567,11 +606,16 @@ insertBtn.addEventListener('click', async () => {
   try {
     showStatus('Importing & inserting into timeline...', 'info', true);
     const trackIndex = parseInt(audioTrack.value, 10);
-    await premiereBridge.importAndInsert(lastAudioPath, trackIndex);
-    showStatus('✓ Inserted into timeline at playhead', 'success');
-    setTimeout(() => {
-      if (statusBar.classList.contains('success')) hideStatus();
-    }, 3000);
+    const result = await callExtendScript('importAndInsert', lastAudioPath, trackIndex);
+    const parsed = JSON.parse(result);
+    if (parsed.error) {
+      showStatus(`Insert failed: ${parsed.error}`, 'error');
+    } else {
+      showStatus('✓ Inserted into timeline at playhead', 'success');
+      setTimeout(() => {
+        if (statusBar.classList.contains('success')) hideStatus();
+      }, 3000);
+    }
   } catch (err) {
     showStatus(`Insert failed: ${err.message}`, 'error');
   }
@@ -611,7 +655,6 @@ function addToHistory(text, voiceName, filePath) {
   history.unshift(entry);
   if (history.length > 20) history.pop();
 
-  // Persist history
   try {
     saveToStorage(STORAGE_KEYS.HISTORY, JSON.stringify(history));
   } catch { /* ignore */ }
@@ -626,7 +669,7 @@ function renderHistory() {
   }
 
   historyList.innerHTML = history.map((item, i) => `
-    <div class="history-item" data-index="${i}" title="${item.voice} — ${item.time}\n${item.path || ''}">
+    <div class="history-item" data-index="${i}" title="${escapeHtml(item.voice)} — ${item.time}\n${item.path || ''}">
       <span class="text-preview">🎙 ${escapeHtml(item.text)}</span>
       <span class="history-meta">${escapeHtml(item.voice)}<br/>${item.time}</span>
     </div>
@@ -639,14 +682,25 @@ function renderHistory() {
       const item = history[idx];
       if (!item?.path) return;
 
+      // Check file still exists
+      if (!fs.existsSync(item.path)) {
+        showStatus('Audio file no longer exists', 'warning');
+        return;
+      }
+
       try {
         showStatus('Inserting into timeline...', 'info', true);
         const trackIndex = parseInt(audioTrack.value, 10);
-        await premiereBridge.importAndInsert(item.path, trackIndex);
-        showStatus('✓ Inserted into timeline', 'success');
-        setTimeout(() => {
-          if (statusBar.classList.contains('success')) hideStatus();
-        }, 3000);
+        const result = await callExtendScript('importAndInsert', item.path, trackIndex);
+        const parsed = JSON.parse(result);
+        if (parsed.error) {
+          showStatus(`Error: ${parsed.error}`, 'error');
+        } else {
+          showStatus('✓ Inserted into timeline', 'success');
+          setTimeout(() => {
+            if (statusBar.classList.contains('success')) hideStatus();
+          }, 3000);
+        }
       } catch (err) {
         showStatus(`Error: ${err.message}`, 'error');
       }
@@ -661,7 +715,8 @@ function renderHistory() {
 
 async function loadAudioTracks() {
   try {
-    const tracks = await premiereBridge.getAudioTracks();
+    const result = await callExtendScript('getAudioTracks');
+    const tracks = JSON.parse(result);
     if (tracks.length > 0) {
       audioTrack.innerHTML = tracks.map(t =>
         `<option value="${t.index}">${escapeHtml(t.name)}</option>`
@@ -710,49 +765,42 @@ function escapeHtml(str) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function restoreSettings() {
-  // Model
   const savedModel = loadFromStorage(STORAGE_KEYS.LAST_MODEL);
   if (savedModel) {
     const exists = Array.from(modelSelect.options).some(o => o.value === savedModel);
     if (exists) modelSelect.value = savedModel;
   }
 
-  // Stability
   const savedStability = loadFromStorage(STORAGE_KEYS.STABILITY);
   if (savedStability !== null) {
     stabilitySlider.value = savedStability;
     stabilityValue.textContent = `${savedStability}%`;
   }
 
-  // Clarity
   const savedClarity = loadFromStorage(STORAGE_KEYS.CLARITY);
   if (savedClarity !== null) {
     claritySlider.value = savedClarity;
     clarityValue.textContent = `${savedClarity}%`;
   }
 
-  // Output format
   const savedFormat = loadFromStorage(STORAGE_KEYS.OUTPUT_FORMAT);
   if (savedFormat) {
     const exists = Array.from(outputFormat.options).some(o => o.value === savedFormat);
     if (exists) outputFormat.value = savedFormat;
   }
 
-  // Auto-insert
   const savedAutoInsert = loadFromStorage(STORAGE_KEYS.AUTO_INSERT);
   if (savedAutoInsert !== null) {
     autoInsert.checked = savedAutoInsert === '1';
     document.getElementById('trackRow').style.display = autoInsert.checked ? 'flex' : 'none';
   }
 
-  // Audio track
   const savedTrack = loadFromStorage(STORAGE_KEYS.AUDIO_TRACK);
   if (savedTrack !== null) {
     const exists = Array.from(audioTrack.options).some(o => o.value === savedTrack);
     if (exists) audioTrack.value = savedTrack;
   }
 
-  // History
   try {
     const savedHistory = loadFromStorage(STORAGE_KEYS.HISTORY);
     if (savedHistory) {
@@ -784,33 +832,18 @@ async function init() {
     elevenLabsAPI.setApiKey(savedKey);
 
     try {
-      // Quick validation
       await elevenLabsAPI.getSubscription();
-      // Key is valid — go straight to main screen
       switchScreen('main');
       await initMainScreen();
     } catch {
-      // Key is no longer valid — clear it and show setup
       removeFromStorage(STORAGE_KEYS.API_KEY);
       switchScreen('setup');
     }
   } else {
-    // No saved key — show setup
     switchScreen('setup');
   }
 }
 
-// Panel lifecycle hooks for UXP
-const entrypoints = require('uxp').entrypoints;
-entrypoints.setup({
-  panels: {
-    elevenLabsPanel: {
-      show() {
-        init();
-      },
-      hide() {
-        // Cleanup if needed
-      },
-    },
-  },
-});
+// Initialize when DOM is ready
+// CEP panels don't use UXP entrypoints — just run init on load
+init();
