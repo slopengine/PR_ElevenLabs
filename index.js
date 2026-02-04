@@ -457,47 +457,64 @@ generateBtn.addEventListener('click', async () => {
 
     let savePath = null;
 
+    // Try saving to a Voiceovers folder next to the project file
     try {
       const projectPath = await premiereBridge.getProjectPath();
       if (projectPath) {
-        const voDir = `${projectPath}/Voiceovers`;
+        let voFolder;
         try {
-          await fs.getEntryForUrl(`file://${voDir}`);
+          voFolder = await fs.getEntryForUrl(`file://${projectPath}/Voiceovers`);
         } catch {
           const projectFolder = await fs.getEntryForUrl(`file://${projectPath}`);
-          await projectFolder.createFolder('Voiceovers');
+          voFolder = await projectFolder.createFolder('Voiceovers');
         }
-        savePath = `${voDir}/${fileName}`;
+        const audioFile = await voFolder.createFile(fileName, { overwrite: true });
+        await audioFile.write(new Uint8Array(audioBuffer), { format: 'binary' });
+        savePath = audioFile.nativePath;
       }
-    } catch {
-      // Fallback: ask user for save location
-      try {
-        const file = await fs.getFileForSaving(fileName, {
-          types: [ext === 'mp3' ? 'audio/mpeg' : 'audio/wav'],
-        });
-        if (file) savePath = file.nativePath;
-      } catch {
-        // Ignore
-      }
+    } catch (err) {
+      console.warn('Could not save to project directory:', err.message);
     }
 
+    // Fallback: save to plugin temp folder (always available)
     if (!savePath) {
-      throw new Error('No save location available. Please open a Premiere Pro project.');
+      try {
+        const tempFolder = await fs.getTemporaryFolder();
+        const audioFile = await tempFolder.createFile(fileName, { overwrite: true });
+        await audioFile.write(new Uint8Array(audioBuffer), { format: 'binary' });
+        savePath = audioFile.nativePath;
+      } catch (err) {
+        throw new Error(`Could not save audio file: ${err.message}`);
+      }
     }
 
-    // Write audio data
-    const fileEntry = await fs.getEntryForUrl(`file://${savePath}`);
-    await fileEntry.write(new Uint8Array(audioBuffer), { format: 'binary' });
     lastAudioPath = savePath;
 
-    // Step 3: Import into timeline
+    // Step 3: Import into project and optionally insert into timeline
     if (autoInsert.checked) {
-      showStatus('Importing to timeline...', 'info', true);
+      showStatus('Importing into timeline...', 'info', true);
       const trackIndex = parseInt(audioTrack.value, 10);
-      await premiereBridge.importAndInsert(savePath, trackIndex);
-      showStatus('✓ Voiceover added to timeline', 'success');
+      try {
+        await premiereBridge.importAndInsert(savePath, trackIndex);
+        showStatus('✓ Voiceover added to timeline at playhead', 'success');
+      } catch (insertErr) {
+        // Import-only fallback: if timeline insertion fails, still import to project
+        console.warn('Timeline insert failed, trying import only:', insertErr.message);
+        try {
+          await premiereBridge.importFile(savePath);
+          showStatus(`⚠ Imported to Voiceovers bin (timeline insert failed: ${insertErr.message})`, 'warning');
+        } catch {
+          showStatus(`✓ Audio saved to: ${savePath}`, 'success');
+        }
+      }
     } else {
-      showStatus('✓ Audio saved successfully', 'success');
+      // Even when auto-insert is off, import into the project panel
+      try {
+        await premiereBridge.importFile(savePath);
+        showStatus('✓ Audio saved & imported to Voiceovers bin', 'success');
+      } catch {
+        showStatus(`✓ Audio saved to: ${savePath}`, 'success');
+      }
     }
 
     // Show preview controls
@@ -548,15 +565,15 @@ playBtn.addEventListener('click', async () => {
 insertBtn.addEventListener('click', async () => {
   if (!lastAudioPath) return;
   try {
-    showStatus('Inserting into timeline...', 'info', true);
+    showStatus('Importing & inserting into timeline...', 'info', true);
     const trackIndex = parseInt(audioTrack.value, 10);
     await premiereBridge.importAndInsert(lastAudioPath, trackIndex);
-    showStatus('✓ Inserted into timeline', 'success');
+    showStatus('✓ Inserted into timeline at playhead', 'success');
     setTimeout(() => {
       if (statusBar.classList.contains('success')) hideStatus();
     }, 3000);
   } catch (err) {
-    showStatus(`Insert error: ${err.message}`, 'error');
+    showStatus(`Insert failed: ${err.message}`, 'error');
   }
 });
 
