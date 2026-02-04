@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <!-- API Key -->
+  <div class="section">
+    <div class="section-label">API Key</div>
+    <div class="api-key-row">
+      <input type="password" id="apiKey" placeholder="Enter ElevenLabs API key..." />
+      <button class="btn-icon" id="toggleKeyVisibility" title="Show/hide key">👁</button>
+    </div>
+  </div>
+
+  <!-- Voice Selection -->
+  <div class="section">
+    <div class="section-label">Voice</div>
+    <select id="voiceSelect" disabled>
+      <option value="">Enter API key to load voices</option>
+    </select>
+  </div>
+
+  <!-- Model Selection -->
+  <div class="section">
+    <div class="section-label">Model</div>
+    <select id="modelSelect">
+      <option value="eleven_multilingual_v2">Multilingual v2</option>
+      <option value="eleven_turbo_v2_5">Turbo v2.5 (Fast)</option>
+      <option value="eleven_turbo_v2">Turbo v2 (Fastest)</option>
+      <option value="eleven_monolingual_v1">English v1</option>
+    </select>
+  </div>
+
+  <!-- Voice Settings -->
+  <div class="section">
+    <div class="section-label">Voice Settings</div>
+    <div class="settings-row">
+      <div class="setting">
+        <label>Stability <span id="stabilityValue" class="setting-value">50%</span></label>
+        <input type="range" id="stability" min="0" max="100" value="50" />
+      </div>
+      <div class="setting">
+        <label>Clarity <span id="clarityValue" class="setting-value">75%</span></label>
+        <input type="range" id="clarity" min="0" max="100" value="75" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Output Format -->
+  <div class="section">
+    <div class="section-label">Output</div>
+    <div class="format-row">
+      <select id="outputFormat">
+        <option value="mp3_44100_128">MP3 44.1kHz 128kbps</option>
+        <option value="mp3_44100_192">MP3 44.1kHz 192kbps</option>
+        <option value="pcm_44100">WAV 44.1kHz (PCM)</option>
+        <option value="pcm_24000">WAV 24kHz (PCM)</option>
+      </select>
+    </div>
+    <div class="toggle-row">
+      <label for="autoInsert">Auto-insert into timeline</label>
+      <input type="checkbox" id="autoInsert" checked />
+    </div>
+    <div class="toggle-row" id="trackRow">
+      <label for="audioTrack">Audio track</label>
+      <select id="audioTrack" style="width: 120px;">
+        <option value="0">Audio 1</option>
+        <option value="1">Audio 2</option>
+        <option value="2">Audio 3</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Text Input -->
+  <div class="section">
+    <div class="section-label">Script</div>
+    <textarea id="scriptText" placeholder="Type or paste your voiceover script here..."></textarea>
+    <div style="margin-top: 4px; text-align: right;">
+      <span id="charCount" style="font-size: 10px; color: var(--text-placeholder);">0 chars</span>
+    </div>
+  </div>
+
+  <!-- Generate Button -->
+  <button class="btn-primary" id="generateBtn" disabled>
+    🎙 Generate Voiceover
+  </button>
+
+  <!-- Status Bar -->
+  <div class="status-bar" id="statusBar">
+    <div class="spinner" id="statusSpinner"></div>
+    <span id="statusText"></span>
+  </div>
+
+  <!-- Audio Preview -->
+  <div class="audio-preview" id="audioPreview">
+    <div class="section-label">Preview</div>
+    <div class="audio-actions">
+      <button class="btn-small" id="playBtn">▶ Play</button>
+      <button class="btn-small" id="insertBtn">📥 Insert to Timeline</button>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Recent History -->
+  <div class="section">
+    <div class="section-label">Recent Generations</div>
+    <div class="history-list" id="historyList">
+      <div class="history-item" style="color: var(--text-placeholder); cursor: default;">
+        No generations yet
+      </div>
+    </div>
+  </div>
+
+  <script src="index.js"></script>
+</body>
+</html>

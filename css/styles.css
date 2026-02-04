@@ -1,0 +1,354 @@
+/* ElevenLabs Voiceover Panel - Premiere Pro Dark Theme */
+:root {
+  --bg-primary: #232323;
+  --bg-secondary: #2d2d2d;
+  --bg-input: #3a3a3a;
+  --bg-hover: #444444;
+  --text-primary: #e0e0e0;
+  --text-secondary: #999999;
+  --text-placeholder: #666666;
+  --accent: #6c63ff;
+  --accent-hover: #7b73ff;
+  --accent-active: #5a52e0;
+  --border: #404040;
+  --success: #4caf50;
+  --warning: #ff9800;
+  --error: #f44336;
+  --radius: 6px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Adobe Clean', 'Segoe UI', -apple-system, sans-serif;
+  font-size: 12px;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  padding: 12px;
+  line-height: 1.4;
+}
+
+/* Section Layout */
+.section {
+  margin-bottom: 16px;
+}
+
+.section-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+/* API Key Section */
+.api-key-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.api-key-row input {
+  flex: 1;
+}
+
+/* Input Styles */
+input, select, textarea {
+  width: 100%;
+  padding: 8px 10px;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-placeholder);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 100px;
+  line-height: 1.5;
+}
+
+select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 28px;
+}
+
+/* Button Styles */
+button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s, opacity 0.15s;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  width: 100%;
+  background-color: var(--accent);
+  color: white;
+  padding: 10px 16px;
+  font-size: 13px;
+}
+
+.btn-primary:hover {
+  background-color: var(--accent-hover);
+}
+
+.btn-primary:active {
+  background-color: var(--accent-active);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-small {
+  padding: 6px 10px;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.btn-small:hover {
+  background-color: var(--bg-hover);
+}
+
+.btn-icon {
+  padding: 6px 8px;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Voice Settings Row */
+.settings-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.settings-row .setting {
+  flex: 1;
+}
+
+.settings-row .setting label {
+  display: block;
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.settings-row .setting input[type="range"] {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  height: 20px;
+  -webkit-appearance: none;
+}
+
+.settings-row .setting input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  margin-top: -5px;
+}
+
+.settings-row .setting input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--bg-hover);
+  border-radius: 2px;
+}
+
+.setting-value {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+/* Output Format */
+.format-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.format-row select {
+  flex: 1;
+}
+
+/* Status & Progress */
+.status-bar {
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  font-size: 11px;
+  display: none;
+}
+
+.status-bar.visible {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-bar.info {
+  background-color: rgba(108, 99, 255, 0.15);
+  color: var(--accent);
+}
+
+.status-bar.success {
+  background-color: rgba(76, 175, 80, 0.15);
+  color: var(--success);
+}
+
+.status-bar.error {
+  background-color: rgba(244, 67, 54, 0.15);
+  color: var(--error);
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Audio Preview */
+.audio-preview {
+  margin-top: 12px;
+  display: none;
+}
+
+.audio-preview.visible {
+  display: block;
+}
+
+.audio-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.audio-actions button {
+  flex: 1;
+}
+
+/* History List */
+.history-list {
+  margin-top: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-secondary);
+  transition: background-color 0.15s;
+}
+
+.history-item:hover {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.history-item .text-preview {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 8px;
+}
+
+.history-item .duration {
+  font-size: 10px;
+  color: var(--text-placeholder);
+  flex-shrink: 0;
+}
+
+/* Divider */
+.divider {
+  height: 1px;
+  background-color: var(--border);
+  margin: 16px 0;
+}
+
+/* Checkbox toggle */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.toggle-row label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-hover);
+}
