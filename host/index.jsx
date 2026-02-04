@@ -11,6 +11,85 @@
  *   getProjectPath()                        — Get project directory path
  */
 
+// ─── File Saving ───────────────────────────────────────────────────────────
+
+/**
+ * Save a base64-encoded audio file to disk.
+ * @param {string} base64Data — Base64-encoded audio data
+ * @param {string} fileName — Desired filename (e.g., "VO_Roger_2026-02-04.mp3")
+ * @param {string} ext — File extension without dot ("mp3" or "wav")
+ * @returns {string} JSON: {success, path} or {error}
+ */
+function saveAudioFile(base64Data, fileName, ext) {
+    try {
+        var savePath = "";
+
+        // Try saving next to the project file
+        var project = app.project;
+        if (project && project.path) {
+            var projectDir = project.path.replace(/[^\/\\]*$/, "");
+            var voDir = projectDir + "Voiceovers";
+            var voFolder = new Folder(voDir);
+            if (!voFolder.exists) voFolder.create();
+            savePath = voDir + "/" + fileName;
+        }
+
+        // Fallback to desktop
+        if (!savePath) {
+            savePath = Folder.desktop.fsName + "/" + fileName;
+        }
+
+        // Decode base64 and write binary file
+        var file = new File(savePath);
+        file.encoding = "BINARY";
+        if (!file.open("w")) {
+            return JSON.stringify({error: "Cannot open file for writing: " + savePath});
+        }
+
+        // Decode base64 to binary string
+        var raw = _base64Decode(base64Data);
+        file.write(raw);
+        file.close();
+
+        return JSON.stringify({success: true, path: savePath});
+
+    } catch (e) {
+        return JSON.stringify({error: "Save error: " + e.toString()});
+    }
+}
+
+/**
+ * Base64 decode helper for ExtendScript (no atob available).
+ */
+function _base64Decode(input) {
+    var keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+    var output = "";
+    var chr1, chr2, chr3;
+    var enc1, enc2, enc3, enc4;
+    var i = 0;
+
+    // Remove non-base64 chars
+    input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+
+    while (i < input.length) {
+        enc1 = keyStr.indexOf(input.charAt(i++));
+        enc2 = keyStr.indexOf(input.charAt(i++));
+        enc3 = keyStr.indexOf(input.charAt(i++));
+        enc4 = keyStr.indexOf(input.charAt(i++));
+
+        chr1 = (enc1 << 2) | (enc2 >> 4);
+        chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+        chr3 = ((enc3 & 3) << 6) | enc4;
+
+        output += String.fromCharCode(chr1);
+        if (enc3 !== 64) output += String.fromCharCode(chr2);
+        if (enc4 !== 64) output += String.fromCharCode(chr3);
+    }
+
+    return output;
+}
+
+
 // ─── Bin Management ────────────────────────────────────────────────────────
 
 /**

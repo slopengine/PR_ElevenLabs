@@ -7,12 +7,26 @@
  */
 
 // ─── CEP Bridge Setup ──────────────────────────────────────────────────────
-const csInterface = new CSInterface();
+let csInterface;
+try {
+  csInterface = new CSInterface();
+} catch (e) {
+  console.warn('CSInterface not available:', e.message);
+  csInterface = null;
+}
 
-// Node.js modules available in CEP panels
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+// Node.js modules — lazy-loaded (may not be available in all CEP runtimes)
+let fs, path, os;
+try {
+  fs = require('fs');
+  path = require('path');
+  os = require('os');
+} catch (e) {
+  console.warn('Node.js modules not available:', e.message);
+  fs = null;
+  path = null;
+  os = null;
+}
 
 /**
  * Call an ExtendScript function in host/index.jsx
@@ -22,6 +36,10 @@ const os = require('os');
  */
 function callExtendScript(fnName, ...args) {
   return new Promise((resolve, reject) => {
+    if (!csInterface) {
+      reject(new Error('CSInterface not available'));
+      return;
+    }
     const argsStr = args.map(a => JSON.stringify(a)).join(',');
     csInterface.evalScript(`${fnName}(${argsStr})`, (result) => {
       if (result === 'EvalScript error.') {
@@ -138,13 +156,16 @@ connectBtn.addEventListener('click', async () => {
   setupFeedback.className = 'setup-feedback';
 
   try {
-    // Set key and validate by fetching user subscription
+    // Set key and validate (tries subscription first, falls back to voices)
     elevenLabsAPI.setApiKey(key);
-    const sub = await elevenLabsAPI.getSubscription();
+    const validation = await elevenLabsAPI.validateKey();
 
     // Success — save key and transition
     saveToStorage(STORAGE_KEYS.API_KEY, key);
-    setupFeedback.textContent = `✓ Connected as ${sub.tier || 'ElevenLabs user'}`;
+    const info = validation.voiceCount != null
+      ? `✓ Connected — ${validation.voiceCount} voices available`
+      : `✓ Connected as ${validation.tier}`;
+    setupFeedback.textContent = info;
     setupFeedback.className = 'setup-feedback success';
 
     // Brief pause to show success, then transition
@@ -171,9 +192,13 @@ connectBtn.addEventListener('click', async () => {
   }
 });
 
-// Open ElevenLabs website — use CSInterface's browser opener
+// Open ElevenLabs website — use CSInterface's browser opener or fallback
 openElevenLabs.addEventListener('click', () => {
-  csInterface.openURLInDefaultBrowser('https://elevenlabs.io/app/settings/api-keys');
+  if (csInterface && csInterface.openURLInDefaultBrowser) {
+    csInterface.openURLInDefaultBrowser('https://elevenlabs.io/app/settings/api-keys');
+  } else {
+    window.open('https://elevenlabs.io/app/settings/api-keys', '_blank');
+  }
 });
 
 
@@ -356,13 +381,21 @@ previewVoiceBtn.addEventListener('click', async () => {
 
     const audioData = await response.arrayBuffer();
 
-    // Save to temp and play
-    const tempDir = os.tmpdir();
-    const tempFile = path.join(tempDir, 'elevenlabs_voice_preview.mp3');
-    fs.writeFileSync(tempFile, Buffer.from(audioData));
-
-    // Open with system player
-    csInterface.openURLInDefaultBrowser('file://' + tempFile);
+    if (fs && os && path) {
+      // Save to temp and play via system
+      const tempDir = os.tmpdir();
+      const tempFile = path.join(tempDir, 'elevenlabs_voice_preview.mp3');
+      fs.writeFileSync(tempFile, Buffer.from(audioData));
+      if (csInterface && csInterface.openURLInDefaultBrowser) {
+        csInterface.openURLInDefaultBrowser('file://' + tempFile);
+      }
+    } else {
+      // Fallback: play in-browser using blob URL
+      const blob = new Blob([audioData], { type: 'audio/mpeg' });
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.play();
+    }
     hideStatus();
   } catch (err) {
     showStatus('Could not play preview', 'warning');
@@ -476,35 +509,45 @@ generateBtn.addEventListener('click', async () => {
 
     let savePath = null;
 
-    // Try saving to a Voiceovers folder next to the project file
-    try {
-      const projectPath = await callExtendScript('getProjectPath');
-      if (projectPath && projectPath.length > 0) {
-        const voFolder = path.join(projectPath, 'Voiceovers');
-        // Create directory if it doesn't exist
-        if (!fs.existsSync(voFolder)) {
-          fs.mkdirSync(voFolder, { recursive: true });
-        }
-        savePath = path.join(voFolder, fileName);
-        fs.writeFileSync(savePath, Buffer.from(audioBuffer));
-      }
-    } catch (err) {
-      console.warn('Could not save to project directory:', err.message);
-      savePath = null;
-    }
-
-    // Fallback: save to temp folder
-    if (!savePath) {
+    if (fs && path && os) {
+      // Node.js available — save directly
       try {
-        const tempDir = path.join(os.tmpdir(), 'ElevenLabs_Voiceovers');
-        if (!fs.existsSync(tempDir)) {
-          fs.mkdirSync(tempDir, { recursive: true });
+        const projectPath = await callExtendScript('getProjectPath');
+        if (projectPath && projectPath.length > 0) {
+          const voFolder = path.join(projectPath, 'Voiceovers');
+          if (!fs.existsSync(voFolder)) {
+            fs.mkdirSync(voFolder, { recursive: true });
+          }
+          savePath = path.join(voFolder, fileName);
+          fs.writeFileSync(savePath, Buffer.from(audioBuffer));
         }
-        savePath = path.join(tempDir, fileName);
-        fs.writeFileSync(savePath, Buffer.from(audioBuffer));
       } catch (err) {
-        throw new Error(`Could not save audio file: ${err.message}`);
+        console.warn('Could not save to project directory:', err.message);
+        savePath = null;
       }
+
+      if (!savePath) {
+        try {
+          const tempDir = path.join(os.tmpdir(), 'ElevenLabs_Voiceovers');
+          if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+          }
+          savePath = path.join(tempDir, fileName);
+          fs.writeFileSync(savePath, Buffer.from(audioBuffer));
+        } catch (err) {
+          throw new Error(`Could not save audio file: ${err.message}`);
+        }
+      }
+    } else {
+      // No Node.js — save via ExtendScript host
+      showStatus('Saving via Premiere Pro...', 'info', true);
+      const base64 = arrayBufferToBase64(audioBuffer);
+      const result = await callExtendScript('saveAudioFile', base64, fileName, ext);
+      const parsed = JSON.parse(result);
+      if (parsed.error) {
+        throw new Error(`Could not save audio: ${parsed.error}`);
+      }
+      savePath = parsed.path;
     }
 
     lastAudioPath = savePath;
@@ -595,7 +638,9 @@ generateBtn.addEventListener('click', async () => {
 playBtn.addEventListener('click', () => {
   if (!lastAudioPath) return;
   try {
-    csInterface.openURLInDefaultBrowser('file://' + lastAudioPath);
+    if (csInterface && csInterface.openURLInDefaultBrowser) {
+      csInterface.openURLInDefaultBrowser('file://' + lastAudioPath);
+    }
   } catch (err) {
     showStatus(`Playback error: ${err.message}`, 'error');
   }
@@ -683,7 +728,7 @@ function renderHistory() {
       if (!item?.path) return;
 
       // Check file still exists
-      if (!fs.existsSync(item.path)) {
+      if (fs && !fs.existsSync(item.path)) {
         showStatus('Audio file no longer exists', 'warning');
         return;
       }
@@ -751,6 +796,15 @@ function removeFromStorage(key) {
 
 function sanitizeFilename(name) {
   return name.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_').slice(0, 30);
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 function escapeHtml(str) {
@@ -832,7 +886,7 @@ async function init() {
     elevenLabsAPI.setApiKey(savedKey);
 
     try {
-      await elevenLabsAPI.getSubscription();
+      await elevenLabsAPI.validateKey();
       switchScreen('main');
       await initMainScreen();
     } catch {

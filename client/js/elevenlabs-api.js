@@ -134,6 +134,33 @@ class ElevenLabsAPI {
 
     return await response.json();
   }
+
+  /**
+   * Validate API key by fetching voices (works with any permission level).
+   * Falls back from /user/subscription to /voices if subscription requires higher perms.
+   * @returns {Promise<Object>} { tier, voiceCount }
+   */
+  async validateKey() {
+    // Try subscription endpoint first (gives us tier info)
+    try {
+      const sub = await this.getSubscription();
+      return { tier: sub.tier || 'ElevenLabs user', voiceCount: null };
+    } catch (subErr) {
+      // If it's a permissions issue (not an auth issue), try voices instead
+      if (subErr.message.includes('401') || subErr.message.includes('Unauthorized')) {
+        // Could be truly invalid OR just missing user_read permission
+        // Try voices endpoint to confirm key validity
+        try {
+          const voices = await this.getVoices();
+          return { tier: 'ElevenLabs user', voiceCount: voices.length };
+        } catch (voicesErr) {
+          // If voices also fails with 401, key is truly invalid
+          throw new Error('Unauthorized — invalid API key (401)');
+        }
+      }
+      throw subErr;
+    }
+  }
 }
 
 // Global singleton
