@@ -6,113 +6,220 @@
 </head>
 <body>
 
-  <!-- API Key -->
-  <div class="section">
-    <div class="section-label">API Key</div>
-    <div class="api-key-row">
-      <input type="password" id="apiKey" placeholder="Enter ElevenLabs API key..." />
-      <button class="btn-icon" id="toggleKeyVisibility" title="Show/hide key">👁</button>
-    </div>
-  </div>
-
-  <!-- Voice Selection -->
-  <div class="section">
-    <div class="section-label">Voice</div>
-    <select id="voiceSelect" disabled>
-      <option value="">Enter API key to load voices</option>
-    </select>
-  </div>
-
-  <!-- Model Selection -->
-  <div class="section">
-    <div class="section-label">Model</div>
-    <select id="modelSelect">
-      <option value="eleven_multilingual_v2">Multilingual v2</option>
-      <option value="eleven_turbo_v2_5">Turbo v2.5 (Fast)</option>
-      <option value="eleven_turbo_v2">Turbo v2 (Fastest)</option>
-      <option value="eleven_monolingual_v1">English v1</option>
-    </select>
-  </div>
-
-  <!-- Voice Settings -->
-  <div class="section">
-    <div class="section-label">Voice Settings</div>
-    <div class="settings-row">
-      <div class="setting">
-        <label>Stability <span id="stabilityValue" class="setting-value">50%</span></label>
-        <input type="range" id="stability" min="0" max="100" value="50" />
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SETUP SCREEN — shown when no API key is saved
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="setupScreen" class="screen active">
+    <div class="setup-container">
+      <!-- Logo / Branding -->
+      <div class="setup-logo">
+        <div class="logo-icon">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <rect width="48" height="48" rx="12" fill="#6c63ff"/>
+            <path d="M14 16h4v16h-4zM22 12h4v24h-4zM30 20h4v8h-4z" fill="white"/>
+          </svg>
+        </div>
+        <h1 class="setup-title">ElevenLabs Voiceover</h1>
+        <p class="setup-subtitle">Generate AI voiceovers directly in Premiere Pro</p>
       </div>
-      <div class="setting">
-        <label>Clarity <span id="clarityValue" class="setting-value">75%</span></label>
-        <input type="range" id="clarity" min="0" max="100" value="75" />
+
+      <!-- API Key Input -->
+      <div class="setup-form">
+        <label class="setup-label" for="setupApiKey">API Key</label>
+        <div class="setup-input-row">
+          <input
+            type="password"
+            id="setupApiKey"
+            placeholder="xi-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            spellcheck="false"
+            autocomplete="off"
+          />
+        </div>
+        <button class="btn-connect" id="connectBtn" disabled>
+          <span class="btn-connect-text">Connect</span>
+          <span class="btn-connect-spinner"></span>
+        </button>
+
+        <!-- Validation feedback -->
+        <div class="setup-feedback" id="setupFeedback"></div>
+      </div>
+
+      <!-- Instructions -->
+      <div class="setup-footer">
+        <p class="setup-hint">
+          Get your API key at
+          <span class="link" id="openElevenLabs">elevenlabs.io</span>
+        </p>
+        <p class="setup-hint muted">Your key is stored locally and only sent to ElevenLabs servers.</p>
       </div>
     </div>
   </div>
 
-  <!-- Output Format -->
-  <div class="section">
-    <div class="section-label">Output</div>
-    <div class="format-row">
-      <select id="outputFormat">
-        <option value="mp3_44100_128">MP3 44.1kHz 128kbps</option>
-        <option value="mp3_44100_192">MP3 44.1kHz 192kbps</option>
-        <option value="pcm_44100">WAV 44.1kHz (PCM)</option>
-        <option value="pcm_24000">WAV 24kHz (PCM)</option>
-      </select>
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MAIN SCREEN — shown after successful connection
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="mainScreen" class="screen">
+    <!-- Header with settings -->
+    <div class="main-header">
+      <div class="main-header-left">
+        <div class="header-logo-small">
+          <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
+            <rect width="48" height="48" rx="12" fill="#6c63ff"/>
+            <path d="M14 16h4v16h-4zM22 12h4v24h-4zM30 20h4v8h-4z" fill="white"/>
+          </svg>
+        </div>
+        <span class="header-title">ElevenLabs</span>
+      </div>
+      <button class="btn-icon-small" id="settingsBtn" title="Settings">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 10a2 2 0 100-4 2 2 0 000 4zm6.32-1.906l-1.018-.588a5.54 5.54 0 000-1.012l1.018-.588a.3.3 0 00.136-.362 6.035 6.035 0 00-1.328-2.3.3.3 0 00-.384-.072l-1.018.588a5.54 5.54 0 00-.876-.506V2.236a.3.3 0 00-.248-.296 6.1 6.1 0 00-2.604 0 .3.3 0 00-.248.296v1.176a5.54 5.54 0 00-.876.506l-1.018-.588a.3.3 0 00-.384.072 6.035 6.035 0 00-1.328 2.3.3.3 0 00.136.362l1.018.588a5.54 5.54 0 000 1.012l-1.018.588a.3.3 0 00-.136.362 6.035 6.035 0 001.328 2.3.3.3 0 00.384.072l1.018-.588c.27.2.564.37.876.506v1.176a.3.3 0 00.248.296 6.1 6.1 0 002.604 0 .3.3 0 00.248-.296v-1.176a5.54 5.54 0 00.876-.506l1.018.588a.3.3 0 00.384-.072 6.035 6.035 0 001.328-2.3.3.3 0 00-.136-.362z"/>
+        </svg>
+      </button>
     </div>
-    <div class="toggle-row">
-      <label for="autoInsert">Auto-insert into timeline</label>
-      <input type="checkbox" id="autoInsert" checked />
+
+    <!-- Settings Dropdown (hidden by default) -->
+    <div class="settings-dropdown" id="settingsDropdown">
+      <div class="settings-dropdown-item" id="disconnectBtn">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M6 2v2H2v8h4v2H2a2 2 0 01-2-2V4a2 2 0 012-2h4zm5.293 2.293l3.414 3.414a1 1 0 010 1.414l-3.414 3.414-1.414-1.414L12.172 9H5V7h7.172l-2.293-2.293 1.414-1.414z"/>
+        </svg>
+        <span>Disconnect API Key</span>
+      </div>
+      <div class="settings-dropdown-item" id="refreshVoicesBtn">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M13.65 2.35A8 8 0 102.35 13.65 8 8 0 0013.65 2.35zM8 14A6 6 0 118 2a5.94 5.94 0 014.24 1.76L8 8V2a6 6 0 000 12z"/>
+        </svg>
+        <span>Refresh Voices</span>
+      </div>
     </div>
-    <div class="toggle-row" id="trackRow">
-      <label for="audioTrack">Audio track</label>
-      <select id="audioTrack" style="width: 120px;">
-        <option value="0">Audio 1</option>
-        <option value="1">Audio 2</option>
-        <option value="2">Audio 3</option>
-      </select>
-    </div>
-  </div>
 
-  <div class="divider"></div>
+    <!-- Scrollable content area -->
+    <div class="main-content">
+      <!-- Voice Selection -->
+      <div class="section">
+        <div class="section-label">Voice</div>
+        <div class="voice-selector-row">
+          <select id="voiceSelect" disabled>
+            <option value="">Loading voices...</option>
+          </select>
+          <button class="btn-icon-small" id="previewVoiceBtn" title="Preview voice" disabled>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M4 3l10 5-10 5z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
 
-  <!-- Text Input -->
-  <div class="section">
-    <div class="section-label">Script</div>
-    <textarea id="scriptText" placeholder="Type or paste your voiceover script here..."></textarea>
-    <div style="margin-top: 4px; text-align: right;">
-      <span id="charCount" style="font-size: 10px; color: var(--text-placeholder);">0 chars</span>
-    </div>
-  </div>
+      <!-- Model Selection -->
+      <div class="section">
+        <div class="section-label">Model</div>
+        <select id="modelSelect">
+          <option value="eleven_multilingual_v2">Multilingual v2 — Best quality</option>
+          <option value="eleven_turbo_v2_5">Turbo v2.5 — Fast, 32 languages</option>
+          <option value="eleven_turbo_v2">Turbo v2 — Fastest, English</option>
+          <option value="eleven_monolingual_v1">English v1 — Classic</option>
+        </select>
+      </div>
 
-  <!-- Generate Button -->
-  <button class="btn-primary" id="generateBtn" disabled>
-    🎙 Generate Voiceover
-  </button>
+      <!-- Voice Settings -->
+      <div class="section">
+        <div class="section-label">Voice Settings</div>
+        <div class="settings-row">
+          <div class="setting">
+            <label>Stability <span id="stabilityValue" class="setting-value">50%</span></label>
+            <input type="range" id="stability" min="0" max="100" value="50" />
+          </div>
+          <div class="setting">
+            <label>Clarity <span id="clarityValue" class="setting-value">75%</span></label>
+            <input type="range" id="clarity" min="0" max="100" value="75" />
+          </div>
+        </div>
+      </div>
 
-  <!-- Status Bar -->
-  <div class="status-bar" id="statusBar">
-    <div class="spinner" id="statusSpinner"></div>
-    <span id="statusText"></span>
-  </div>
+      <div class="divider"></div>
 
-  <!-- Audio Preview -->
-  <div class="audio-preview" id="audioPreview">
-    <div class="section-label">Preview</div>
-    <div class="audio-actions">
-      <button class="btn-small" id="playBtn">▶ Play</button>
-      <button class="btn-small" id="insertBtn">📥 Insert to Timeline</button>
-    </div>
-  </div>
+      <!-- Script Text -->
+      <div class="section">
+        <div class="section-label-row">
+          <span class="section-label" style="margin-bottom:0;">Script</span>
+          <span id="charCount" class="char-count">0 / 5,000</span>
+        </div>
+        <textarea
+          id="scriptText"
+          placeholder="Type or paste your voiceover script here..."
+          maxlength="5000"
+        ></textarea>
+      </div>
 
-  <div class="divider"></div>
+      <!-- Generate Button -->
+      <button class="btn-primary" id="generateBtn" disabled>
+        <span class="btn-primary-icon">🎙</span>
+        <span id="generateBtnText">Generate Voiceover</span>
+      </button>
 
-  <!-- Recent History -->
-  <div class="section">
-    <div class="section-label">Recent Generations</div>
-    <div class="history-list" id="historyList">
-      <div class="history-item" style="color: var(--text-placeholder); cursor: default;">
-        No generations yet
+      <!-- Output Settings (collapsible) -->
+      <details class="output-details">
+        <summary class="output-summary">Output Settings</summary>
+        <div class="output-content">
+          <div class="section">
+            <div class="section-label">Format</div>
+            <select id="outputFormat">
+              <option value="mp3_44100_128">MP3 44.1kHz 128kbps</option>
+              <option value="mp3_44100_192">MP3 44.1kHz 192kbps</option>
+              <option value="pcm_44100">WAV 44.1kHz (PCM)</option>
+              <option value="pcm_24000">WAV 24kHz (PCM)</option>
+            </select>
+          </div>
+          <div class="toggle-row">
+            <label for="autoInsert">Auto-insert into timeline</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="autoInsert" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row" id="trackRow">
+            <label for="audioTrack">Audio track</label>
+            <select id="audioTrack" class="select-small">
+              <option value="0">Audio 1</option>
+              <option value="1">Audio 2</option>
+              <option value="2">Audio 3</option>
+            </select>
+          </div>
+        </div>
+      </details>
+
+      <!-- Status Bar -->
+      <div class="status-bar" id="statusBar">
+        <div class="spinner" id="statusSpinner"></div>
+        <span id="statusText"></span>
+        <button class="status-dismiss" id="statusDismiss" title="Dismiss">×</button>
+      </div>
+
+      <!-- Audio Preview -->
+      <div class="audio-preview" id="audioPreview">
+        <div class="section-label">Preview</div>
+        <div class="audio-actions">
+          <button class="btn-small" id="playBtn">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M4 3l10 5-10 5z"/></svg>
+            Play
+          </button>
+          <button class="btn-small" id="insertBtn">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v6H2v2h6v6h2V9h6V7H10V1z"/></svg>
+            Insert to Timeline
+          </button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Recent History -->
+      <div class="section">
+        <div class="section-label">Recent Generations</div>
+        <div class="history-list" id="historyList">
+          <div class="history-empty">
+            No generations yet
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.slopengine.pr-elevenlabs",
   "name": "ElevenLabs Voiceover",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "index.html",
   "host": {
     "app": "PremierePro",
@@ -21,7 +21,7 @@
       },
       "preferredDockedSize": {
         "width": 320,
-        "height": 500
+        "height": 600
       }
     }
   ],
@@ -39,6 +39,7 @@
         "https://api.elevenlabs.io"
       ]
     },
-    "localFileSystem": "fullAccess"
+    "localFileSystem": "fullAccess",
+    "localStorage": "readWrite"
   }
 }

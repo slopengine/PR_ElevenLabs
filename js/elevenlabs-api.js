@@ -114,7 +114,7 @@ class ElevenLabsAPI {
   }
 
   /**
-   * Get user subscription info (for quota checking).
+   * Get user subscription info (for quota checking and key validation).
    * @returns {Promise<Object>} Subscription info
    */
   async getSubscription() {
@@ -124,6 +124,9 @@ class ElevenLabsAPI {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Unauthorized — invalid API key (401)');
+      }
       throw new Error(`Failed to fetch subscription (${response.status})`);
     }
 
